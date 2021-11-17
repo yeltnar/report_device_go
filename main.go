@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,17 +14,23 @@ const PUB_IP_PING = "https://digitalocean.andbrant.com"
 
 func main() {
 
-	pub_ip := getPubIP()
-	lan_ip := getLanIP("192.168")
-	nebula_ip := getLanIP("10.10.10")
+	type IpList struct {
+		Pub    string `json:pub`
+		Lan    string `json:lan`
+		Nebula string `json:nebula`
+	}
 
-	fmt.Println(pub_ip)
-	fmt.Println(lan_ip)
-	fmt.Println(nebula_ip)
-	log.Printf("done")
+	pub_ip := pingForIP()
+	lan_ip := getSystemIP("192.168")
+	nebula_ip := getSystemIP("10.10.10")
+
+	ip_list := IpList{pub_ip, lan_ip, nebula_ip}
+	ip_list_json, _ := json.Marshal(ip_list)
+
+	fmt.Println(string(ip_list_json))
 }
 
-func getPubIP() string {
+func pingForIP() string {
 	resp, err := http.Get(PUB_IP_PING)
 	if err != nil {
 		log.Fatalln(err)
@@ -42,7 +49,7 @@ func getPubIP() string {
 	return sb
 }
 
-func getLanIP(regex_str string) string {
+func getSystemIP(regex_str string) string {
 	ifaces, _ := net.Interfaces()
 	// ifaces, err := net.Interfaces()
 	// handle err
