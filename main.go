@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 )
 
@@ -14,24 +15,31 @@ const PUB_IP_PING = "https://digitalocean.andbrant.com"
 
 func main() {
 
-	type IpList struct {
-		Pub    string `json:pub`
-		Lan    string `json:lan`
-		Nebula string `json:nebula`
+	if len(os.Args) < 2 {
+		panic("No device name to report. Provide as first argument when running")
 	}
 
-	pub_ip := pingForIP()
+	device_name := os.Args[1]
+
+	type IpList struct {
+		Pub    string `json:"pub"`
+		Lan    string `json:"lan"`
+		Nebula string `json:"nebula"`
+	}
+
+	pub_ip := pingForIP(PUB_IP_PING)
 	lan_ip := getSystemIP("192.168")
 	nebula_ip := getSystemIP("10.10.10")
 
 	ip_list := IpList{pub_ip, lan_ip, nebula_ip}
 	ip_list_json, _ := json.Marshal(ip_list)
 
+	fmt.Println(device_name)
 	fmt.Println(string(ip_list_json))
 }
 
-func pingForIP() string {
-	resp, err := http.Get(PUB_IP_PING)
+func pingForIP(url_to_ping string) string {
+	resp, err := http.Get(url_to_ping)
 	if err != nil {
 		log.Fatalln(err)
 	}
