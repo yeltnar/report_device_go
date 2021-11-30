@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -9,17 +10,50 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"time"
 )
 
 const PUB_IP_PING = "https://digitalocean.andbrant.com"
 
+func reportToHomeAssistant(device_name string, report_key string, state string, time_stamp string, file_location string) {
+
+	access_token, err := os.ReadFile(file_location)
+	check(err)
+
+	url := "http://homeassistant:8123/api/states/" + device_name + "." + report_key + ""
+
+	jsonStr := []byte(`{"state":"` + state + `","attributes":{"time_stamp":"` + time_stamp + `"}}`)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+
+	req.Header.Set("Authorization", "Bearer "+string(access_token))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer resp.Body.Close()
+
+	fmt.Println(string(jsonStr))
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("response Body:", string(body))
+
+}
+
 func main() {
 
-	if len(os.Args) < 2 {
-		panic("No device name to report. Provide as first argument when running")
+	if len(os.Args) < 3 {
+		panic("No device name to report or token file. Provide as arguments, in order, when running")
 	}
 
 	device_name := os.Args[1]
+	time_stamp := fmt.Sprint(time.Now().Unix())
+	file_location := os.Args[2]
 
 	type IpList struct {
 		Pub    string `json:"pub"`
@@ -30,6 +64,10 @@ func main() {
 	pub_ip := pingForIP(PUB_IP_PING)
 	lan_ip := getSystemIP("192.168")
 	nebula_ip := getSystemIP("10.10.10")
+
+	reportToHomeAssistant(device_name, "pub_ip", pub_ip, time_stamp, file_location)
+	reportToHomeAssistant(device_name, "lan_ip", lan_ip, time_stamp, file_location)
+	reportToHomeAssistant(device_name, "nebula_ip", nebula_ip, time_stamp, file_location)
 
 	ip_list := IpList{pub_ip, lan_ip, nebula_ip}
 	ip_list_json, _ := json.Marshal(ip_list)
@@ -87,4 +125,10 @@ func getSystemIP(regex_str string) string {
 		}
 	}
 	return ""
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
 }
